@@ -1,6 +1,6 @@
 # Spacecraft Dynamics and Control
 
-
+This repo contains various ressources used to solve problems in https://www.coursera.org/learn/spacecraft-dynamics-kinematics.
 
 ## Getting started
 
