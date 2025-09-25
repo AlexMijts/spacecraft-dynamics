@@ -82,3 +82,40 @@ if __name__ == "__main__":
     plt.grid(True)
     plt.show()
 
+    # print("MRP EQUIVALENT for concept check 20 verification")
+
+    # # Input
+    # initial_set = rbk.MRP2EP(np.array([0.4, 0.2, -0.1]))
+
+    # # Generate the discrete series of angular velocities
+    # omega_series = np.empty(len(time), dtype=np.ndarray)
+    # for idx, t in enumerate(time):
+    #     omega_series[idx] = np.deg2rad(20) * np.array([np.sin(0.1*t), 0.01, np.cos(0.1*t)])
+
+    # # Compute the successive values of beta using the angular velocities increments per steps
+    # final_set = integrate_euler_parameter_set(step_duration, omega_series, initial_set)
+    # for i in range(len(final_set)):
+    #     final_set[i] = rbk.EP2MRP(final_set[i])
+
+    # # Plot result
+    # b0, b1, b2 = [], [], []
+    # for set in final_set:
+    #     b0.append(set[0])
+    #     b1.append(set[1])
+    #     b2.append(set[2])
+
+    # norm = []
+    # for idx in range(0, len(b0)):
+    #     norm.append(np.linalg.norm((b0[idx], b1[idx],b2[idx])))
+
+    # print("Final Norm value after " + str(time[nb_steps]) + "s : " + str(norm[-1]) + " (sampling period : "+ str(step_duration) + "s )")
+
+    # plt.figure()
+    # plt.plot(time, b0,  label='s0')
+    # plt.plot(time, b1,  label='s1')
+    # plt.plot(time, b2,  label='s2')
+    # plt.plot(time, norm,  label='NORM')
+    # plt.xlabel("Time [s]")
+    # plt.legend()
+    # plt.grid(True)
+    # plt.show()
