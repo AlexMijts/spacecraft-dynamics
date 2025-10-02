@@ -2,9 +2,8 @@ import numpy as np
 import sys
 sys.path.append('../')
 
-from common.matrixOperations import compute_mat_products
-
-from euler_angles.eulerAngles import compute_euler321_to_dcm
+from attitude_coordinates.common.matrixOperations import compute_mat_products
+from attitude_coordinates.euler_angles.eulerAngles import compute_euler321_to_dcm
 
 def c2prv(c: np.array) -> tuple[float, np.ndarray]:
     '''

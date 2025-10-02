@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append('../')
 
-from common.matrixOperations import compute_mat_products
+from attitude_coordinates.common.matrixOperations import compute_mat_products
 
 def compute_euler321_to_dcm(theta1: float, theta2: float, theta3: float):
     """
