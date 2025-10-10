@@ -60,25 +60,24 @@ def devenport_q_method(v_b_list, v_n_list, w_list):
         # Compute B
         B += w * vb @ vn.T
 
-    # Compute S, sigma, Z and create K matrix
+    # Compute S, sigma,Z and create K matrix
     S = B + B.T
     sigma = np.trace(B)
     Z = np.array([
-        B[1,2] - B[2,1],
-        B[2,0] - B[0,2],
-        B[0,1] - B[1,0]
+        [B[1,2] - B[2,1]],
+        [B[2,0] - B[0,2]],
+        [B[0,1] - B[1,0]]
     ])
-    K = np.zeros((4,4))
-    K[0,0] = sigma
-    K[0,1:4] = Z
-    K[1:4,0] = Z
-    K[1:4,1:4] = S - sigma * np.eye(3)
+    K = np.array([sigma])
+    K = np.concatenate((K, Z.T), axis=None)
+    K= np.vstack([K, np.concatenate((Z, S-sigma*np.eye(3)), axis=1)])
+    print(K)
 
     # Compute eigen value-vector pairs
     val, vec = np.linalg.eig(K)
     # Extract the biggest eigen value and its corresponding vector
-    index_max = np.argmax(val)
-    eig_pair = (val[index_max], vec[:, index_max])
+    index_max = max(range(len(val)), key=val.__getitem__)
+    eig_pair = (val[index_max], vec[:,index_max])
 
     return ep2c(eig_pair[1])
 
