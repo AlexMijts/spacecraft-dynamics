@@ -1,1 +1,1 @@
-__all__ = ["triad"]
+__all__ = ["estimators"]

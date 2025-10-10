@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append('../')
 
-from common.matrixOperations import compute_mat_products
+from attitude_coordinates.common.matrixOperations import compute_mat_products
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
 def compute_shadow_set(s: np.array) -> np.array:

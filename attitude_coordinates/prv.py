@@ -3,7 +3,7 @@ import sys
 sys.path.append('../')
 
 from attitude_coordinates.common.matrixOperations import compute_mat_products
-from attitude_coordinates.euler_angles.eulerAngles import compute_euler321_to_dcm
+from attitude_coordinates.eulerAngles import compute_euler321_to_dcm
 
 def c2prv(c: np.array) -> tuple[float, np.ndarray]:
     '''

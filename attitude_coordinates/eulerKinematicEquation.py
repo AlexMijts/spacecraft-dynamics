@@ -1,5 +1,5 @@
 import numpy as  np
-from Basilisk.utilities import RigidBodyKinematics as rbk
+
 def integrate_euler_set(angular_speed : float,
                       time_step: float,
                       yaw_pitch_roll: np.ndarray) -> np.ndarray:

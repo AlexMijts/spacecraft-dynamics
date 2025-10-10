@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append('../')
 
-from euler_angles.eulerAngles import compute_euler321_to_dcm
+from .eulerAngles import compute_euler321_to_dcm
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
 def ep2c(beta: np.array) -> np.ndarray:
@@ -17,7 +17,7 @@ def ep2c(beta: np.array) -> np.ndarray:
 
     c = np.array([
         [beta0**2+beta1**2-beta2**2-beta3**2, 2 * (beta1*beta2 - beta0*beta3), 2 * (beta1*beta3 + beta0*beta2)],
-        [2 * (beta1*beta2 + beta0*beta3), beta0**2-beta1**2+beta2**2+beta3**2, 2 * (beta2*beta3 - beta0*beta1)],
+        [2 * (beta1*beta2 + beta0*beta3), beta0**2-beta1**2+beta2**2-beta3**2, 2 * (beta2*beta3 - beta0*beta1)],
         [2 * (beta1*beta3 - beta0*beta2), 2 * (beta2*beta3 + beta0*beta1), beta0**2-beta1**2-beta2**2+beta3**2]
     ])
 
