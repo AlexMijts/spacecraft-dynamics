@@ -1,6 +1,7 @@
 from concept_checks import ConceptCheck
 import attitude_estimation.estimators as attest
 from attitude_coordinates import prv
+from attitude_coordinates.ep import ep2c
 
 import numpy as np
 
@@ -51,3 +52,10 @@ if __name__ == '__main__':
 
     # Compare Davenport's result with TRIAD
     compare_dcms(devenport_dcm, triad_dcm, label="Delta with TRIAD method:")
+
+        # --- Concept Check 5: QUEST method ---
+    quest_check = ConceptCheck(" Concept Check 5: QUEST method")
+    quest_ep = quest_check.run(attest.quest_method, (v1b, v2b), (v1n, v2n), weights)
+    quest_check.print_result(label="beta Result:")
+    print("DCM equivalent :")
+    compare_dcms(ep2c(quest_ep), triad_dcm, label="Delta with TRIAD method:")
