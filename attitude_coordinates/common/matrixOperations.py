@@ -23,3 +23,25 @@ def compute_mat_products(*matrices: np.ndarray) -> np.ndarray:
                              f"{result.shape} and {mat.shape}")
         result = result @ mat
     return result
+
+def skew_symmetric(vec: np.ndarray) -> np.ndarray:
+    """
+    Return the 3x3 skew-symmetric matrix for a 3-element vector.
+
+    Args:
+        vec (np.ndarray): 1D array-like with 3 elements.
+
+    Returns:
+        np.ndarray: 3x3 skew-symmetric matrix S such that S @ w = vec x w.
+
+    Raises:
+        TypeError: if input cannot be converted to a numpy array.
+        ValueError: if input does not have exactly 3 elements.
+    """
+    vec = np.asarray(vec)
+    if vec.size != 3:
+        raise ValueError("Input vector must have exactly 3 elements.")
+    x, y, z = vec.ravel()
+    return np.array([[ 0, -z,  y],
+                     [ z,  0, -x],
+                     [-y,  x,  0]])

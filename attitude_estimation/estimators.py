@@ -1,5 +1,7 @@
 import numpy as np
+from scipy.linalg import block_diag
 from attitude_coordinates.ep import ep2c
+from attitude_coordinates.common.matrixOperations import skew_symmetric
 
 def determine_triad_attitude(meas1_b : np.array, meas1_n: np.array, meas2_b : np.array, meas2_n: np.array, ) -> np.array:
     """
@@ -114,7 +116,7 @@ def quest_method(v_b_list, v_n_list, w_list):
         v_n_list (tuple): tuple of corresponding 3x1 inertial vectors in N frame
         w_list (tuple): tuple of scalar weights associated with each measurement.
     Returns:
-        b (np.array): 4x1 euler param representing the attitude wrt inertial frame
+        b (np.array): 1x4 euler param representing the attitude wrt inertial frame
     """
     if len(v_b_list) != len(v_n_list) or len(v_b_list) != len(w_list):
         raise(RuntimeError("the list of measurements-pair and weights need to be of identical length"))
@@ -159,4 +161,45 @@ def quest_method(v_b_list, v_n_list, w_list):
 
     return b.flatten()
 
+def olae_method(v_b_list, v_n_list, w_list):
+    """
+    Compute the [BN] dcm using the QUEST method
 
+    Args:
+        v_b_list (tuple): tuple of 3x1 measurements vectors in B S/C frame
+        v_n_list (tuple): tuple of corresponding 3x1 inertial vectors in N frame
+        w_list (tuple): tuple of scalar weights associated with each measurement.
+    Returns:
+        crp (np.array): 1x3 CRP representing the attitude wrt inertial frame
+    """
+
+    crp = np.zeros(3)
+    if len(v_b_list) != len(v_n_list) or len(v_b_list) != len(w_list):
+        raise(RuntimeError("the list of measurements-pair and weights need to be of identical length"))
+
+    B = np.zeros((3,3))
+
+    # Ensure all vectors are 3x1 column arrays
+    v_b_list = [np.asarray(vb).reshape(3, 1) for vb in v_b_list]
+    v_n_list = [np.asarray(vn).reshape(3, 1) for vn in v_n_list]
+
+    W, S, D = [],[],[]
+    # Compute d, S and W for each input measurement
+    for vb, vn, w in zip(v_b_list, v_n_list, w_list):
+        # Normalize inputs
+        vb = vb/np.linalg.norm(vb)
+        vn = vn/np.linalg.norm(vn)
+
+        # Compute d,S and W
+        D.append((vb-vn))
+        S.append(skew_symmetric((vb+vn)))
+        W.append(w*np.eye(3))
+
+    # Construct the complete matrices
+    D = np.vstack(D)
+    S = np.vstack(S)
+    W_mat = block_diag(*W)
+
+    crp = np.linalg.inv(S.T @ W_mat @ S) @ S.T @ W_mat @ D
+
+    return crp.flatten()
