@@ -20,7 +20,18 @@ if __name__ == '__main__':
 
     # --- Concept Check 3: linear momentum ---
     check3 = ConceptCheck("Concept Check 3: linear momentum")
-    check3.run(system.linear_momentum)
+    check3.run(system.get_linear_momentum)
     check3.print_result(label="System linear momentum : ")
+
+    # --- Concept Check 4 : angular momentum ---
+    check4 = ConceptCheck("Concept Check : angular momentum")
+    # angular momentum at cm :
+    check4.run(system.get_angular_momentum)
+    check4.print_result(label="System angular momentum : ")
+
+    # angular momentum at origin :
+    origin_angmom = system.compute_ang_mom(system.particles, (np.array([0,0,0]), np.array([0,0,0])))
+    print("Angular momentum at origin : ", origin_angmom)
+
 
 

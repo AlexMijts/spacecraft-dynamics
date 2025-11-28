@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass, field
-from typing import List, Iterable, Union
+from typing import List, Iterable, Union, Optional, Tuple
 
 @dataclass
 class Particle:
@@ -79,17 +79,6 @@ class System:
             return list(self.particles)
         return [p if isinstance(p, Particle) else Particle.from_tuple(p) for p in particles]
 
-    # def compute_ang_mom(system: List[Particle], r: tuple = (np.zeros(0, dtype=float), np.zeros(0, dtype=float))) -> np.ndarray:
-    #     """
-    #     Compute total angular momentum of the system (Nms) at the specified point r (pos, vel). If r is not specified, computes at CoM.
-    #     If 'particles' is None, use particles stored in the System.
-    #     Updates self.angular_momentum_vec (and mass/CM attributes).
-    #     Returns: numpy array vector of momentum.
-    #     """
-    #     angular_momentum_vec = sum(p.mass * np.cross((p.position - r[0]), (p.velocity - r[1])) for p in system)
-
-    #     return angular_momentum_vec
-
     def _update_mass_and_cm(self, system: List[Particle]) -> None:
         """Update all physical quantities impacted by system mass layout"""
         if len(system) == 0:
@@ -104,8 +93,9 @@ class System:
         self.cm_position = sum(p.mass * p.position for p in system) / self.total_mass
         self.cm_velocity = sum(p.mass * p.velocity for p in system) / self.total_mass
         self.linear_momentum_vec = self.total_mass * self.cm_velocity
-        # self.angular_momentum_vec = self.compute_ang_mom((self.cm_position, self.cm_velocity))
+        self.angular_momentum_vec = self.compute_ang_mom(system, (self.cm_position, self.cm_velocity))
 
+    # ----------- External function toolbox ----------- #
     def kinetic_energy(self, particles: Iterable[Particle] = None) -> tuple:
         """
         Compute translational and rotational (deformation) kinetic energy.
@@ -136,7 +126,22 @@ class System:
 
         return (self.translational_energy, self.rotational_energy)
 
-    def linear_momentum(self, particles: Iterable[Particle] = None) -> np.ndarray:
+    @staticmethod
+    def compute_ang_mom(system: List[Particle], r: Optional[Tuple[np.ndarray, np.ndarray]] = None ) -> np.ndarray:
+        """
+        Compute total angular momentum of the system (Nms) at the specified point r (pos, vel). If r is not specified, computes at CoM.
+        If 'particles' is None, use particles stored in the System.
+        Updates self.angular_momentum_vec (and mass/CM attributes).
+        Returns: numpy array vector of momentum.
+        """
+        if r is None:
+            r = (np.zeros(0, dtype=float), np.zeros(0, dtype=float))
+        angular_momentum_vec = sum(p.mass * np.cross((p.position - r[0]), (p.velocity - r[1])) for p in system)
+
+        return angular_momentum_vec
+
+    # ----------- Getters ----------- #
+    def get_linear_momentum(self, particles: Iterable[Particle] = None) -> np.ndarray:
         """
         Compute total linear momentum of the system (kg·m·s^-1).
         If 'particles' is None, use particles stored in the System.
@@ -154,9 +159,9 @@ class System:
 
         return self.linear_momentum_vec
 
-    def angular_momentum(self, particles: Iterable[Particle] = None, r: np.ndarray = np.zeros(0, dtype=float)) -> np.ndarray:
+    def get_angular_momentum(self, particles: Iterable[Particle] = None) -> np.ndarray:
         """
-        Compute total angular momentum of the system (Nms) at the specified point r or at the CoM if r is not specified.
+        Compute total angular momentum of the system (Nms) at the specified point r (position and velocity tuple) or at the CoM if r is not specified.
         If 'particles' is None, use particles stored in the System.
         Updates self.angular_momentum_vec (and mass/CM attributes).
         Returns: numpy array vector of momentum.
@@ -166,8 +171,6 @@ class System:
         if len(system) == 0:
             self._update_mass_and_cm(system)
             return np.zeros(0, dtype=float)
-
-
 
         # update mass, center of mass and linear momentum attributes
         self._update_mass_and_cm(system)
