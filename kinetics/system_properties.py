@@ -176,3 +176,5 @@ class System:
         self._update_mass_and_cm(system)
 
         return self.angular_momentum_vec
+
+
