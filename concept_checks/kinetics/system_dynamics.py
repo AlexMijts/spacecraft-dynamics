@@ -2,6 +2,7 @@ import numpy as np
 from kinetics.system_properties import *
 from kinetics.rigid_body import *
 from attitude_coordinates.eulerAngles import compute_euler321_to_dcm
+from Basilisk.utilities import RigidBodyKinematics as rbk
 from concept_checks import ConceptCheck
 
 if __name__ == '__main__':
@@ -49,6 +50,7 @@ if __name__ == '__main__':
     check5.run(rbk_angular_momentum, Ic, w_b)
     check5.print_result(label="Rigid body angular momentum : ")
 
+    # --- Concept Check 6.0 : Parallel axis theorem ---
     check6 = ConceptCheck("Concept Check : Parallel axis theorem")
     bn = compute_euler321_to_dcm(np.deg2rad(-10), np.deg2rad(10), np.deg2rad(5))
     # Compute inertia in N frame
@@ -57,4 +59,18 @@ if __name__ == '__main__':
     check6.print_result(label="New inertia at point P (N frame):")
     # Reset to B frame at the new point P
     I_b_P = bn @ I_n_P @ bn.T
-    print("Inertia tensor at point P in Body frame B : \n", I_b_P)
+    print("Inertia tensor at point P in Body frame B : \n", I_b_P, '\n\n')
+
+    # --- Concept Check 6.1 : Coordinate transform ---
+    db = rbk.MRP2C((0.1 , 0.2, 0.3))
+    I_d = db @ Ic @ db.T
+    print("Concept Check 6.1 : Coordinate transform : \n", I_d)
+    print("Principal Inertias : \n")
+    eig_val, eig_vec = np.linalg.eig(Ic)
+    print("eigen vectors : \n",eig_vec, "\neigen vals : ", eig_val)
+    fb=np.array([-eig_vec[1],eig_vec[2],eig_vec[0]])
+    print("fb :\n", fb, "\ndet :",np.linalg.det(fb), '\n\n')
+
+    # --- Concept Check 7 : Kinetic energy ---
+    w = np.array([0.01, -0.01, 0.01]).T
+    print("Concept Check 7 : Kinetic energy : ", 0.5*w.T @ Ic @ w)
