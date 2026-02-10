@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # --- Concept Check 5 : rigid body angular momentum ---
     check5 = ConceptCheck("Concept Check : rigid body angular momentum")
-    Ic = np.array([[10, 1, -1], [1, 5, 1], [-1, 1, 8]])
+    Ic = np.array([[10.0, 1.0, -1.0], [1.0, 5.0, 1.0], [-1.0, 1.0, 8.0]])
     w_n = np.array([[0.01], [-0.01], [0.01]])
     w_b = compute_euler321_to_dcm(np.deg2rad(-10), np.deg2rad(10), np.deg2rad(5)) @ w_n
     check5.run(rbk_angular_momentum, Ic, w_b)
@@ -68,9 +68,12 @@ if __name__ == '__main__':
     print("Principal Inertias : \n")
     eig_val, eig_vec = np.linalg.eig(Ic)
     print("eigen vectors : \n",eig_vec, "\neigen vals : ", eig_val)
-    fb=np.array([-eig_vec[1],eig_vec[2],eig_vec[0]])
+    fb=np.array([-eig_vec[:,1],eig_vec[:,2],eig_vec[:,0]])
     print("fb :\n", fb, "\ndet :",np.linalg.det(fb), '\n\n')
 
     # --- Concept Check 7 : Kinetic energy ---
     w = np.array([0.01, -0.01, 0.01]).T
     print("Concept Check 7 : Kinetic energy : ", 0.5*w.T @ Ic @ w)
+
+
+
