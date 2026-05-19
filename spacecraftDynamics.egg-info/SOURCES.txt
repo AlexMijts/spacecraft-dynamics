@@ -1,8 +1,0 @@
-README.md
-setup.py
-attitude_coordinates/__init__.py
-attitude_estimation/__init__.py
-spacecraftDynamics.egg-info/PKG-INFO
-spacecraftDynamics.egg-info/SOURCES.txt
-spacecraftDynamics.egg-info/dependency_links.txt
-spacecraftDynamics.egg-info/top_level.txt

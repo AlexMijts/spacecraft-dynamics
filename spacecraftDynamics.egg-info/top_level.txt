@@ -1,2 +1,0 @@
-attitude_coordinates
-attitude_estimation
