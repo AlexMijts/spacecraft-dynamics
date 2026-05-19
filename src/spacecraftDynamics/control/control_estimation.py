@@ -13,22 +13,21 @@ def inertial_attitude_control_propagator(
     P = 10 * np.eye(3)
     K = 5
     # Simulation setup
-    init_step, final_step, step_duration = 0.0, duration, 0.001
-    nb_steps= int(np.round((final_step - init_step)/ step_duration))
-    time = np.linspace(init_step, final_step, nb_steps+1)
-    w_out = [np.zeros(3)] * len(time)
+    step_duration = 0.001
+    nb_steps= int(np.round(duration/ step_duration)) + 1
+    w_out = [np.zeros(3)] * nb_steps
 
     # Compute angular velocities increments at each timestamps
     sigma_prev = sigma_i
     w_prev = w_i
     w_dot = 0
 
-    for idx in range(1, len(time)):
+    for idx in range(1, len(w_out)):
         w_dot = I_inv @ (-K * sigma_prev - P @ w_prev)
         w_out[idx] = w_prev + w_dot
         w_prev = w_out[idx]
 
     # Retreive the corresponding attitude using kinematics equation
-    sigmas = integrate_mrp_set(step_duration, w_out, sigma_i, show_plot=True)
+    sigmas = integrate_mrp_set(step_duration, duration, w_out, sigma_i, show_plot=True)
 
     return sigmas

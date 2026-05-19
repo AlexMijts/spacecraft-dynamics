@@ -45,8 +45,7 @@ def integrate_mrp_set(step_size : float,
 
     if show_plot:
         # Time
-        nb_steps = int(np.round(final_step / step_duration))
-        import pdb; pdb.set_trace()
+        nb_steps = int(np.round(propagation_time / step_size))
         time = np.linspace(0, propagation_time, nb_steps + 1)
 
         # Plot result
@@ -66,7 +65,7 @@ def integrate_mrp_set(step_size : float,
             + "s : "
             + str(norm[-1])
             + " (sampling period : "
-            + str(step_duration)
+            + str(step_size)
             + "s )"
         )
 
