@@ -1,10 +1,14 @@
-from concept_checks import ConceptCheck
-import attitude_estimation.estimators as attest
-from attitude_coordinates import prv
-from attitude_coordinates.ep import ep2c
-from attitude_coordinates.crp import crp_to_dcm
-
 import numpy as np
+import spacecraftDynamics.attitude_estimation.estimators as attest
+from spacecraftDynamics.attitude_coordinates import prv
+from spacecraftDynamics.attitude_coordinates.ep import ep2c
+from spacecraftDynamics.attitude_coordinates.crp import crp_to_dcm
+
+# Handle both relative import (when run as module) and absolute import (when run directly)
+try:
+    from .. import ConceptCheck
+except ImportError:
+    from concept_checks import ConceptCheck
 
 def compare_dcms(dcm1: np.ndarray, dcm2: np.ndarray, label: str = "Delta Angle"):
     """

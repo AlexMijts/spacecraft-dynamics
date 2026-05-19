@@ -1,9 +1,14 @@
 import numpy as np
-from kinetics.system_properties import *
-from kinetics.rigid_body import *
-from attitude_coordinates.eulerAngles import compute_euler321_to_dcm
+from spacecraftDynamics.kinetics.system_properties import Particle, System
+from spacecraftDynamics.kinetics.rigid_body import rbk_angular_momentum, recompute_inertia
+from spacecraftDynamics.attitude_coordinates.eulerAngles import compute_euler321_to_dcm
 from Basilisk.utilities import RigidBodyKinematics as rbk
-from concept_checks import ConceptCheck
+
+# Handle both relative import (when run as module) and absolute import (when run directly)
+try:
+    from .. import ConceptCheck
+except ImportError:
+    from concept_checks import ConceptCheck
 
 if __name__ == '__main__':
     # --- Input Data ---

@@ -1,13 +1,32 @@
+Metadata-Version: 2.4
+Name: spacecraftDynamics
+Version: 0.1.0
+Summary: Tools for spacecraft dynamics, kinematics, and control analysis
+Author: Spacecraft Dynamics Contributors
+Project-URL: Homepage, https://gitlab.com/u-space/gnc/spacecraft-dynamics
+Keywords: spacecraft,dynamics,kinematics,attitude,control
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.20.0
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov>=3.0; extra == "dev"
+Requires-Dist: black>=22.0; extra == "dev"
+Requires-Dist: flake8>=4.0; extra == "dev"
+Requires-Dist: mypy>=0.950; extra == "dev"
+Requires-Dist: isort>=5.10; extra == "dev"
+Provides-Extra: science
+Requires-Dist: matplotlib>=3.5.0; extra == "science"
+
 # Spacecraft Dynamics and Control
 
 This repo contains various ressources used to solve problems in https://www.coursera.org/learn/spacecraft-dynamics-kinematics.
 
-## Run concept checks
+## Getting started
 
-In order to run concept checks, the following command can be used from the top level
-```
-python3 -m concept_checks.kinetics.system_dynamics
-```
+To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+
+Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
 
 ## Add your files
 

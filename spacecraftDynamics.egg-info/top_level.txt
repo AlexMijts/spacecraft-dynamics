@@ -1,3 +1,0 @@
-attitude_coordinates
-attitude_estimation
-nl_control
