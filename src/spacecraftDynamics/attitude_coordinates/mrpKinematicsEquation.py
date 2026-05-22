@@ -6,6 +6,55 @@ import pdb
 
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
+def angular_rate_to_mrp_rate(w, sigma) -> np.ndarray:
+    '''
+    Computes the corresponding mrp rate from the input angular rate and attitude
+    '''
+    s1 = sigma[0]
+    s2 = sigma[1]
+    s3 = sigma[2]
+    norm_2 = np.dot(sigma, sigma)
+    B = np.array([
+        [1-norm_2+2*s1**2, 2*(s1*s2-s3), 2*(s1*s3+s2)],
+        [2*(s2*s1+s3), 1-norm_2+2*s2**2, 2*(s2*s3-s1)],
+        [2*(s3*s1-s2), 2*(s3*s2+s1), 1-norm_2+2*s3**2]
+    ])
+
+    return (0.25 * B @ w)
+
+def mrp_rate_to_angular_rate(sigma_dot, sigma) -> np.ndarray:
+    '''
+    Computes the corresponding angular rate from the input mrp rate and attitude
+    '''
+    s1 = sigma[0]
+    s2 = sigma[1]
+    s3 = sigma[2]
+    norm_2 = np.dot(sigma, sigma)
+    B = np.array([
+        [1-norm_2+2*s1**2, 2*(s1*s2-s3), 2*(s1*s3+s2)],
+        [2*(s2*s1+s3), 1-norm_2+2*s2**2, 2*(s2*s3-s1)],
+        [2*(s3*s1-s2), 2*(s3*s2+s1), 1-norm_2+2*s3**2]
+    ])
+
+    return ((4 / ((1 + norm_2) ** 2))) * B.T @ sigma_dot
+
+def angular_rate_to_mrp_rate(w, sigma) -> np.ndarray:
+    '''
+        Computes the corresponding mrp rate from the input angular rate and attitude
+    '''
+    s1 = sigma[0]
+    s2 = sigma[1]
+    s3 = sigma[2]
+    norm_2 = np.dot(sigma, sigma)
+    B = np.array([
+        [1-norm_2+2*s1**2, 2*(s1*s2-s3), 2*(s1*s3+s2)],
+        [2*(s2*s1+s3), 1-norm_2+2*s2**2, 2*(s2*s3-s1)],
+        [2*(s3*s1-s2), 2*(s3*s2+s1), 1-norm_2+2*s3**2]
+    ])
+
+    return (0.25 * B @ w)
+
+
 def integrate_mrp_set(step_size : float,
                       propagation_time: float,
                       angular_rates: np.ndarray,
@@ -21,23 +70,11 @@ def integrate_mrp_set(step_size : float,
 
     for idx in range(1, len(angular_rates)):
 
-        # Compute B matrix at this step
-        norm_2 = np.dot(mrp_series[idx-1], mrp_series[idx-1])
-        sigma1 = mrp_series[idx-1][0]
-        sigma2 = mrp_series[idx-1][1]
-        sigma3 = mrp_series[idx-1][2]
-        B = np.array([[1-norm_2+2*sigma1**2, 2*(sigma1*sigma2-sigma3), 2*(sigma1*sigma3+sigma2)],
-                      [2*(sigma2*sigma1+sigma3), 1-norm_2+2*sigma2**2, 2*(sigma2*sigma3-sigma1)],
-                      [2*(sigma3*sigma1-sigma2), 2*(sigma3*sigma2+sigma1), 1-norm_2+2*sigma3**2]])
+        # Kinematics equation
+        sigma_dot = angular_rate_to_mrp_rate(angular_rates[idx], mrp_series[idx - 1])
 
-        mrp_series[idx] = mrp_series[idx-1] +  0.25 * B @ angular_rates[idx] * step_size
-
-        # linear algebra method
-        # skew = np.array([[ 0,    -initial_mrp[2],  initial_mrp[1]],
-        #                  [ initial_mrp[2],  0,    -initial_mrp[0]],
-        #                  [-initial_mrp[1],  initial_mrp[0],  0   ]])
-        # mat = 0.25 * ( (1-norm_2)*np.eye(3) + 2*skew + 2*initial_mrp.T @ initial_mrp)
-        # mrp_series[idx] = mrp_series[idx-1] +  mat @ angular_rates[idx] * step_size
+        # Euler integration
+        mrp_series[idx] = mrp_series[idx - 1] + sigma_dot * step_size
 
         # Normalise to shadowset if norm exceeds 1
         if np.linalg.norm(mrp_series[idx]) > 1 :

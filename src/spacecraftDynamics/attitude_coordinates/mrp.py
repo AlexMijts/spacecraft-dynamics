@@ -21,6 +21,32 @@ def compute_dcm_to_mrp(c : np.array) -> np.array:
 
     return (csi_fact*s)
 
+def mrp_to_dcm(sigma) -> np.ndarray:
+    # Ensure it's a numpy array for vector operations
+    sigma = np.asarray(sigma, dtype=float)
+
+    # Calculate the squared magnitude of the MRP vector
+    norm_2 = np.dot(sigma, sigma)
+
+    # Create the skew-symmetric matrix [sigma_tilde]
+    s_tilde = np.array([
+        [0,        -sigma[2],  sigma[1]],
+        [sigma[2],  0,        -sigma[0]],
+        [-sigma[1], sigma[0],  0]
+    ])
+
+    # Common denominator term to simplify the math
+    denominator = (1 + norm_2) ** 2
+
+    # Construct the DCM
+    I = np.eye(3)
+    term1 = (4 * (1 - norm_2) / denominator) * s_tilde
+    term2 = (8 / denominator) * (s_tilde @ s_tilde)
+
+    dcm = I + term1 + term2
+
+    return dcm
+
 if __name__ == "__main__":
 
     print("# ------- CONCEPT CHECK 17 -------#")
