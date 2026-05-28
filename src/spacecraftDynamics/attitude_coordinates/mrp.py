@@ -2,7 +2,7 @@ import numpy as np
 import sys
 sys.path.append('../')
 
-from attitude_coordinates.common.matrixOperations import compute_mat_products
+from .common.matrixOperations import compute_mat_products
 from Basilisk.utilities import RigidBodyKinematics as rbk
 
 def compute_shadow_set(s: np.array) -> np.array:
@@ -47,6 +47,30 @@ def mrp_to_dcm(sigma) -> np.ndarray:
 
     return dcm
 
+
+def mrp_subtraction(sigma_bn: np.ndarray, sigma_rn: np.ndarray) -> np.ndarray:
+    """
+    Computes the attitude subtraction MRP from two MRPs.
+    Mathematically equivalent to sigma_bn (+) (-sigma_rn) = sigma_br
+    """
+    s_bn_sq = np.dot(sigma_bn, sigma_bn)
+    s_rn_sq = np.dot(sigma_rn, sigma_rn)
+
+    # Numerator of the MRP composition formula
+    num = (1 - s_rn_sq) * sigma_bn - (1 - s_bn_sq) * sigma_rn + 2 * np.cross(sigma_bn, sigma_rn)
+
+    # Denominator of the MRP composition formula
+    den = 1 + (s_bn_sq * s_rn_sq) + 2 * np.dot(sigma_bn, sigma_rn)
+
+    sigma_br = num / den
+
+    # Enforce the shadow set to guarantee the shortest rotation path
+    if np.linalg.norm(sigma_br) > 1:
+        sigma_br = -sigma_br / np.dot(sigma_br, sigma_br)
+
+    return sigma_br
+
+
 if __name__ == "__main__":
 
     print("# ------- CONCEPT CHECK 17 -------#")
@@ -80,5 +104,3 @@ if __name__ == "__main__":
     sigma1 = np.array([0.1,0.2,0.3])
     sigma2 = np.array([0.5,0.3,0.1])
     print(rbk.addMRP(-sigma2, sigma1))
-
-
