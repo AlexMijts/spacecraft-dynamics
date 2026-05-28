@@ -40,7 +40,8 @@ def mrp_to_dcm(sigma) -> np.ndarray:
 
     # Construct the DCM
     I = np.eye(3)
-    term1 = (4 * (1 - norm_2) / denominator) * s_tilde
+
+    term1 = -(4 * (1 - norm_2) / denominator) * s_tilde
     term2 = (8 / denominator) * (s_tilde @ s_tilde)
 
     dcm = I + term1 + term2

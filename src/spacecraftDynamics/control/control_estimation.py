@@ -35,6 +35,22 @@ def propagate_inertial_tracking_control(
     ext_torques=np.zeros(1),
     show_plot=True,
 ) -> tuple[float, float]:
+    """
+    Propagate free-tumbling spacecraft dynamics based on input control law, initial attitude and velocity
+    Args:
+        time: Timestamp array
+        reference_mrp: Tracked inertial reference attitude MRP at each timestamp
+        I: S/C inertia matrix,
+        reference_mrp_rate: (optional): Tracked inertial reference attitude MRP rate at each timestamp
+        K (optional): Proportional Gain
+        P (optional): Angular rate error gain matrix
+        sigma_bn_i (optional): Initial attitude MRP
+        w_bn_i (optional): Initial angular velocities
+        ext_torques (optional): perturbing torques at each timestamp
+
+    Returns:
+        tuple: The resulting error attitude and rate norm at the last timestamp (sigma_br, w_br_f)
+    """
 
     N = len(time)
 
@@ -67,47 +83,55 @@ def propagate_inertial_tracking_control(
     # Loop runs up to N-2 to allow forward-looking finite difference at i+1
     for i in range(N - 1):
         dt = float(time[i+1] - time[i])
-        s_rn = reference_mrps[i]
+
+        target_idx = i + 1
+        s_rn_target = reference_mrps[target_idx]
+
+        # Store historical tracking errors before updating state (for plotting/returns)
+        sigma_br[i] = mrp_subtraction(sigma_bn, reference_mrps[i])
+
+        # --------------- Propagate Attitude --------------- #
+
+        # Retreive the new s_bn using Euler method
+        sigma_bn_next = sigma_bn + angular_rate_to_mrp_rate(w_bn, sigma_bn) * dt
+
+        # Normalise to shadowset if norm exceeds 1
+        if np.linalg.norm(sigma_bn_next) > 1:
+            sigma_bn_next = (-1 / (np.dot(sigma_bn_next, sigma_bn_next))) * sigma_bn_next
 
         # --------------- Compute current attitude and angular rate tracking errors  --------------- #
 
-        # Correct MRP error composition
-        sigma_br[i] = mrp_subtraction(sigma_bn, reference_mrps[i])
+        # Correct MRP error composition using the NEW propagated attitude and TARGET reference
+        sigma_br_ctrl = mrp_subtraction(sigma_bn_next, s_rn_target)
 
         if reference_mrp_rates is not None:
             if len(reference_mrp_rates) != N:
                 raise ValueError("Inconsistent sigma and sigma_dot series")
-            s_rn_dot = reference_mrp_rates[i]
+            s_rn_dot = reference_mrp_rates[target_idx]
+
+            w_rn_prev = mrp_rate_to_angular_rate(reference_mrp_rates[i], reference_mrps[i])
+        else:
+            # Linear numerical derivative to reach the target_idx
+            s_rn_dot = (reference_mrps[target_idx] - reference_mrps[i]) / dt
 
             # Handle the i=0 edge case
             prev_idx = max(0, i - 1)
-            w_rn_prev = mrp_rate_to_angular_rate(reference_mrp_rates[prev_idx], reference_mrps[prev_idx])
-        else:
-            # Linear numerical derivative
-            s_rn_dot = (reference_mrps[i + 1] - reference_mrps[i]) / dt
+            mrp_rate_prev = compute_linear_rate(reference_mrps[prev_idx], reference_mrps[i], dt)
+            w_rn_prev = mrp_rate_to_angular_rate(mrp_rate_prev, reference_mrps[i])
 
-            # Handle the i=0 edge case
-            prev_idx = max(0, i - 1)
-            mrp_rate = compute_linear_rate(reference_mrps[i], reference_mrps[prev_idx], dt)
-            w_rn_prev = mrp_rate_to_angular_rate(mrp_rate, reference_mrps[prev_idx])
+        w_rn = mrp_rate_to_angular_rate(s_rn_dot, s_rn_target)
+        w_rn_dot = compute_linear_rate(w_rn_prev, w_rn, dt)
 
-        w_rn = mrp_rate_to_angular_rate(s_rn_dot, s_rn)
-
-        # Prevent dividing by zero on the very first loop iteration for w_rn_dot
-        if i == 0:
-            w_rn_dot = np.zeros(3)
-        else:
-            w_rn_dot = compute_linear_rate(w_rn, w_rn_prev, dt)
-
-        # Store w_rn and compute rate error
+        # Store w_rn and compute rate error based on target rates
         w_rn_series[i] = w_rn
         w_br[i] = w_bn - w_rn
 
         # --------------- Compute the control to apply at this step  --------------- #
 
-        u = generate_control(K, P, I, w_rn, w_rn_dot, w_bn, sigma_br[i], dt)
+        # Control is generated using NEW attitude error, but OLD angular rate
+        u = generate_control(K, P, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, dt)
 
-        # --------------- Propagate to next step using dynamics and defined control law  --------------- #
+        # --------------- Propagate Velocity --------------- #
 
         w_bn_tilde = np.array([
             [0, -w_bn[2],  w_bn[1]],
@@ -115,16 +139,11 @@ def propagate_inertial_tracking_control(
             [-w_bn[1], w_bn[0], 0]
         ])
 
-        # Corrected sign on the gyroscopic torque term
+        # Use Euler equation to obtain dynamics
         w_bn_dot = I_inv @ (u - (w_bn_tilde @ I @ w_bn))
 
-        # Retreive the new w_bn and s_bn using Euler method
-        sigma_bn_next = sigma_bn + angular_rate_to_mrp_rate(w_bn, sigma_bn) * dt
+        # Retreive the new w_bn
         w_bn_next = w_bn + w_bn_dot * dt
-
-        # Normalise to shadowset if norm exceeds 1
-        if np.linalg.norm(sigma_bn_next) > 1:
-            sigma_bn_next = (-1 / (np.dot(sigma_bn_next, sigma_bn_next))) * sigma_bn_next
 
         # Store the propagated state at step i+1
         sigma_bn_series[i+1] = sigma_bn_next
@@ -136,16 +155,19 @@ def propagate_inertial_tracking_control(
 
     # Calculate final errors for the return statement based on the final states
     sigma_br[-1] = mrp_subtraction(sigma_bn_series[-1], reference_mrps[-1])
-    # w_br calculation for the final index would require w_rn[-1],
-    # assuming w_rn settles, returning index -2 is safe.
+    w_rn_series[-1] = w_rn_series[-2] # Fill final index for display
+    w_br[-1] = w_bn_series[-1] - w_rn_series[-1]
+
+    mrp_norm = [np.dot(i, i) for i in sigma_bn_series]
+    error_norm = [np.linalg.norm(i) for i in sigma_br]
+    print("Norm sigma_br at ", time[4000], "s: ", error_norm[4000])
+    print("Norm sigma_bn at ", time[3000], "s: ", np.sqrt(mrp_norm[3000]))
 
     if show_plot:
         w_bn_series = np.array(w_bn_series)
         w_rn_series = np.array(w_rn_series)
         reference_mrps = np.array(reference_mrps)
         sigma_bn_series = np.array(sigma_bn_series)
-
-        mrp_norm = [np.dot(i, i) for i in sigma_bn_series]
 
         plt.figure(0)
         plt.plot(time, sigma_bn_series[:, 0], 'g')

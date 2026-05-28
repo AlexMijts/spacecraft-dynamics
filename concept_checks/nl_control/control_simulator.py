@@ -17,7 +17,9 @@ def compute_target_motion_mrp(t : float) -> tuple[np.ndarray, np.ndarray]:
 
     return s_rn, s_rn_dot
 
-if __name__ == '__main__':
+if __name__ == "__main__":
+    plotting = True
+
     # --- Input Data ---
     w_i = np.array([np.deg2rad(30), np.deg2rad(10), np.deg2rad(-20)])
     s_i = np.array([0.1, 0.2, -0.1])
@@ -31,7 +33,7 @@ if __name__ == '__main__':
 
     # Propagation time
     h = 0.01
-    ftime = 40 # [s]
+    ftime = 200 # [s]
     time = np.linspace(0, ftime, int(ftime/h + 1))
 
     # Tracking reference attitude (Aligned with inertial frame)
@@ -47,14 +49,14 @@ if __name__ == '__main__':
         P=P,
         sigma_bn_i=s_i,
         w_bn_i=w_i,
+        show_plot=plotting
     )
-    check1.print_result(label=f"Propagated attitudes (inertial fixed tracking)  at t = {ftime}s: ")
+    check1.print_result(label=f"Attitude mrp and angular rate error (inertial fixed tracking)  at t = {ftime}s: ")
 
     # QUESTION 5
 
     # Propagation time
-    h = 0.01
-    ftime = 120 # [s]
+    ftime = 200 # [s]
     time = np.linspace(0, ftime, int(ftime/h + 1))
 
     # Tracking reference attitude (custom analytical tracking)
@@ -74,5 +76,6 @@ if __name__ == '__main__':
         P=P,
         sigma_bn_i=s_i,
         w_bn_i=w_i,
+        show_plot=plotting
     )
-    check2.print_result(label=f"Propagated attitudes (custom analytical tracking) at t = {ftime} : ")
+    check2.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking) at t = {ftime}s: ")
