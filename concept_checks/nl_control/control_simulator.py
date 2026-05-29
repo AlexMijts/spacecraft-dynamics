@@ -53,9 +53,9 @@ if __name__ == "__main__":
     )
     check1.print_result(label=f"Attitude mrp and angular rate error (inertial fixed tracking)  at t = {ftime}s: ")
 
-    # QUESTION 5
+    QUESTION 5
 
-    # Propagation time
+    Propagation time
     ftime = 200 # [s]
     time = np.linspace(0, ftime, int(ftime/h + 1))
 
@@ -79,3 +79,31 @@ if __name__ == "__main__":
         show_plot=plotting
     )
     check2.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking) at t = {ftime}s: ")
+
+    # Propagation time
+    ftime = 200 # [s]
+    time = np.linspace(0, ftime, int(ftime/h + 1))
+
+    # Tracking reference attitude (custom analytical tracking)
+    sigma_rn = [np.zeros(3)] * len(time)
+    sigma_rn_dot = [np.zeros(3)] * len(time)
+    for i, t in enumerate(time):
+        sigma_rn[i], sigma_rn_dot[i] = compute_target_motion_mrp(t)
+
+    L = [np.array([0.5, -0.3, 0.2])] * len(time) # [Nm]
+
+    check3 = ConceptCheck("Concept Check 2: Asymptotic stability")
+    check3.run(
+        control_estimation.propagate_inertial_tracking_control,
+        time=time,
+        reference_mrps=sigma_rn,
+        reference_mrp_rates=sigma_rn_dot,
+        I=I,
+        K=K,
+        P=P,
+        sigma_bn_i=s_i,
+        w_bn_i=w_i,
+        ext_torques = L,
+        show_plot=plotting
+    )
+    check3.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking with external torque) at t = {ftime}s: ")
