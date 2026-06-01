@@ -150,7 +150,15 @@ def propagate_inertial_tracking_control(
             [-w_bn[1], w_bn[0], 0]
         ])
 
-        w_bn_dot = I_inv @ (u - (w_bn_tilde @ I @ w_bn) + tau[i])
+        # Unmodelled torque
+        # d_l = np.array([0.5,-0.3,0.2]) # [Nm]
+
+        w_bn_dot = I_inv @ (
+            u
+            - (w_bn_tilde @ I @ w_bn)
+            + tau[i]
+            # + d_l
+        )
 
         # Retreive the new w_bn
         w_bn_next = w_bn + w_bn_dot * dt
@@ -170,7 +178,7 @@ def propagate_inertial_tracking_control(
 
     mrp_norm = [np.dot(i, i) for i in sigma_bn_series]
     error_norm = [np.linalg.norm(i) for i in sigma_br]
-    print("Norm sigma_br at ", time[7000], "s: ", error_norm[7000])
+    print("Norm sigma_br at ", time[3500], "s: ", error_norm[3500])
     print("Norm sigma_bn at ", time[3000], "s: ", np.sqrt(mrp_norm[3000]))
 
     if show_plot:

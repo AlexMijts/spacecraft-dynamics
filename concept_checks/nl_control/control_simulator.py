@@ -8,6 +8,16 @@ try:
 except ImportError:
     from concept_checks import ConceptCheck
 
+# Customize me
+def get_initial_parameters():
+    """Returns the common initial conditions and spacecraft properties."""
+    w_i = np.array([np.deg2rad(30), np.deg2rad(10), np.deg2rad(-20)])
+    s_i = np.array([0.1, 0.2, -0.1])
+    K = 5  # [Nm]
+    P = 10 * np.eye(3)  # [Nms]
+    I = np.array([[100, 0, 0], [0, 75, 0], [0, 0, 80]])
+    return w_i, s_i, K, P, I
+
 def compute_target_motion_mrp(t : float) -> tuple[np.ndarray, np.ndarray]:
     """Compute analytical sigma_rn and sigma_rn_dot"""
 
@@ -17,30 +27,12 @@ def compute_target_motion_mrp(t : float) -> tuple[np.ndarray, np.ndarray]:
 
     return s_rn, s_rn_dot
 
-if __name__ == "__main__":
-    plotting = True
-
-    # --- Input Data ---
-    w_i = np.array([np.deg2rad(30), np.deg2rad(10), np.deg2rad(-20)])
-    s_i = np.array([0.1, 0.2, -0.1])
-    K = 5  # [Nm]
-    P = 10 * np.eye(3)  # [Nms]
-    I = np.array([[100, 0, 0], [0, 75, 0], [0, 0, 80]])
-
-    # --- Concept Check 1: General 3-Axis Control ---
-
-    # QUESTION 4
-
-    # Propagation time
-    h = 0.01
-    ftime = 200 # [s]
-    time = np.linspace(0, ftime, int(ftime/h + 1))
-
+def run_inertial_fixed_tracking(time, w_i, s_i, K, P, I, ftime, plotting):
     # Tracking reference attitude (Aligned with inertial frame)
     sigma_rn = [np.zeros(3)] * len(time)
 
-    check1 = ConceptCheck("Concept Check 1: General 3-Axis Control")
-    check1.run(
+    check = ConceptCheck("Concept Check 1: General 3-Axis Control")
+    check.run(
         control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
@@ -51,22 +43,17 @@ if __name__ == "__main__":
         w_bn_i=w_i,
         show_plot=plotting
     )
-    check1.print_result(label=f"Attitude mrp and angular rate error (inertial fixed tracking)  at t = {ftime}s: ")
+    check.print_result(label=f"Attitude mrp and angular rate error (inertial fixed tracking) at t = {ftime}s: ")
 
-    QUESTION 5
-
-    Propagation time
-    ftime = 200 # [s]
-    time = np.linspace(0, ftime, int(ftime/h + 1))
-
+def run_custom_analytical_tracking(time, w_i, s_i, K, P, I, ftime, plotting):
     # Tracking reference attitude (custom analytical tracking)
     sigma_rn = [np.zeros(3)] * len(time)
     sigma_rn_dot = [np.zeros(3)] * len(time)
     for i, t in enumerate(time):
         sigma_rn[i], sigma_rn_dot[i] = compute_target_motion_mrp(t)
 
-    check2 = ConceptCheck("Concept Check 1: General 3-Axis Control")
-    check2.run(
+    check = ConceptCheck("Concept Check 1: General 3-Axis Control")
+    check.run(
         control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
@@ -78,22 +65,20 @@ if __name__ == "__main__":
         w_bn_i=w_i,
         show_plot=plotting
     )
-    check2.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking) at t = {ftime}s: ")
+    check.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking) at t = {ftime}s: ")
 
-    # Propagation time
-    ftime = 200 # [s]
-    time = np.linspace(0, ftime, int(ftime/h + 1))
-
+def run_custom_tracking_with_torque(time, w_i, s_i, K, P, I, ftime, plotting):
+    """Runs Concept Check 2: Custom analytical tracking with a known external torque."""
     # Tracking reference attitude (custom analytical tracking)
     sigma_rn = [np.zeros(3)] * len(time)
     sigma_rn_dot = [np.zeros(3)] * len(time)
     for i, t in enumerate(time):
         sigma_rn[i], sigma_rn_dot[i] = compute_target_motion_mrp(t)
 
-    L = [np.array([0.5, -0.3, 0.2])] * len(time) # [Nm]
+    L = [np.array([0.5, -0.3, 0.2])] * len(time)  # [Nm]
 
-    check3 = ConceptCheck("Concept Check 2: Asymptotic stability")
-    check3.run(
+    check = ConceptCheck("Concept Check 2: Asymptotic stability")
+    check.run(
         control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
@@ -103,7 +88,27 @@ if __name__ == "__main__":
         P=P,
         sigma_bn_i=s_i,
         w_bn_i=w_i,
-        ext_torques = L,
+        ext_torques=L,
         show_plot=plotting
     )
-    check3.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking with external torque) at t = {ftime}s: ")
+    check.print_result(label=f"Attitude mrp and angular rate error (custom analytical tracking with external torque) at t = {ftime}s: ")
+
+def main():
+    plotting = True
+
+    # --- Retrieve Input Data ---
+    w_i, s_i, K, P, I = get_initial_parameters()
+
+    # --- Set Propagation Time ---
+    h = 0.01
+    ftime = 200  # [s]
+    # Calculate time array once to pass into all functions
+    time = np.linspace(0, ftime, int(ftime/h + 1))
+
+    # --- Run Checks ---
+    run_inertial_fixed_tracking(time, w_i, s_i, K, P, I, ftime, plotting)
+    # run_custom_analytical_tracking(time, w_i, s_i, K, P, I, ftime, plotting)
+    # run_custom_tracking_with_torque(time, w_i, s_i, K, P, I, ftime, plotting)
+
+if __name__ == "__main__":
+    main()
