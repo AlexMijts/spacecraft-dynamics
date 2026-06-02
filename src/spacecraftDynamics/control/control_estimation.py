@@ -4,14 +4,26 @@ import matplotlib.pyplot as plt
 from ..attitude_coordinates.mrpKinematicsEquation import mrp_rate_to_angular_rate, angular_rate_to_mrp_rate
 from ..attitude_coordinates.mrp import mrp_to_dcm, mrp_subtraction
 
-
 def compute_linear_rate(x_prev, x_now, dt):
     """Compute first order rate approximation"""
     return (x_now - x_prev) / dt
 
 
-def generate_control(K, P, I, w_ref, w_dot_ref, w_bn, sigma_br, L) -> np.ndarray:
-    """Compute control law"""
+def simple_trap_integral(up, low, dx):
+    """Approximate integral using trapezoidal rule"""
+    return (up + low) * 0.5 * dx
+
+
+def generate_pd_control(gains, I, w_ref, w_dot_ref, w_bn, sigma_br, L) -> np.ndarray:
+    """Compute proportional derivative n.l control law"""
+
+    # Retreive Gains
+    if (np.shape(gains[0]) != ()) or (np.shape(gains[1]) != (3, 3)):
+        raise ValueError(f"Specified gain of different shape than K () and P (3,3)")
+
+    K = gains[0]
+    P = gains[1]
+
     # Map w_rn and w_rn_dot in body frame using sigma_br for DCM
     dcm_BR = mrp_to_dcm(sigma_br)
     w_rn_B = dcm_BR @ w_ref
@@ -30,16 +42,60 @@ def generate_control(K, P, I, w_ref, w_dot_ref, w_bn, sigma_br, L) -> np.ndarray
     return u
 
 
+def generate_pid_control(
+    gains, I, w_ref, w_dot_ref, w_bn, sigma_br_pair, L, w_br_pair, sigma_br_sum, dt
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute proportional integral derivative n.l control law"""
+
+    sigma_br_next, sigma_br_prev = sigma_br_pair[0], sigma_br_pair[1]
+    w_br_now, w_br_i = w_br_pair[0], w_br_pair[1]
+
+    # Retreive Gains
+    if (
+        (np.shape(gains[0]) != ())
+        or (np.shape(gains[1]) != (3, 3))
+        or (gains[2] != None and np.shape(gains[2]) != ())
+    ):
+        raise ValueError(f"Specified gain of different shape than K () P (3,3) and K_i ()")
+
+    K = gains[0]
+    P = gains[1]
+    K_i = gains[2]
+
+    # Map w_rn and w_rn_dot in body frame using sigma_br for DCM
+    dcm_BR = mrp_to_dcm(sigma_br_next)
+    w_rn_B = dcm_BR @ w_ref
+    w_br = w_bn - w_rn_B
+    w_rn_dot_B = dcm_BR @ w_dot_ref
+
+    # Compute z value
+
+    # integral approximation of sigma_br over current dt
+    sigma_br_sum += K * simple_trap_integral(sigma_br_next, sigma_br_prev, dt)
+    z = sigma_br_sum + np.dot(I, w_br_now - w_br_i)
+
+    # Compute control command
+    u = (
+        -K * sigma_br_next
+        - np.dot(P, w_br)
+        + np.dot(I, w_rn_dot_B - np.cross(w_bn, w_rn_B))
+        + np.cross(w_bn, np.dot(I, w_bn))
+        - np.dot(P * K_i, z)
+        - L
+    )
+
+    return u, sigma_br_sum
+
+
 def propagate_inertial_tracking_control(
     time: np.ndarray,
     reference_mrps: np.ndarray,
     I: np.ndarray,
     reference_mrp_rates=None,
-    K=1,
-    P=np.eye(3),
+    gains=(1, np.eye(3), None),
     sigma_bn_i=np.array([0, 0, 0]),
     w_bn_i=np.array([0, 0, 0]),
-    ext_torques=None,
+    ext_torques=(None, None),
     show_plot=True,
 ) -> tuple[float, float]:
     """
@@ -49,23 +105,26 @@ def propagate_inertial_tracking_control(
         reference_mrp: Tracked inertial reference attitude MRP at each timestamp
         I: S/C inertia matrix,
         reference_mrp_rate: (optional): Tracked inertial reference attitude MRP rate at each timestamp
-        K (optional): Proportional Gain
-        P (optional): Angular rate error gain matrix
+        gains (optional): (Proportional Gain, Angular rate error gain matrix, Integral gain) customizable gains
         sigma_bn_i (optional): Initial attitude MRP
         w_bn_i (optional): Initial angular velocities
-        ext_torques (optional): perturbing torques at each timestamp
+        ext_torques (optional): tuple of np.ndarray (estimated_torques, unmodelled_torques), perturbing torques at each timestamp
 
     Returns:
         tuple: The resulting error attitude and rate norm at the last timestamp (sigma_br, w_br_f)
     """
 
     N = len(time)
+    dts = [j - i for i, j in zip(time[:-1], time[1:])]
 
     # Check input consistency
     if len(reference_mrps) != N:
         raise ValueError("The input provided do not have consistent length")
 
-    if ext_torques is not None and len(ext_torques) != N:
+    if ext_torques[0] is not None and len(ext_torques[0]) != N:
+        raise ValueError("The input provided do not have consistent length")
+
+    if ext_torques[1] is not None and len(ext_torques[1]) != N:
         raise ValueError("The input provided do not have consistent length")
 
     I_inv = np.linalg.inv(I)
@@ -83,16 +142,21 @@ def propagate_inertial_tracking_control(
     w_rn_series = np.zeros((N, 3))
     sigma_bn_series = np.zeros((N, 3))
 
-    # External torques
-    tau = np.zeros((N, 3)) if ext_torques is None else np.array(ext_torques)
+    # Known external torques
+    tau_hat = np.zeros((N, 3)) if ext_torques[0] is None else np.array(ext_torques[0])
+    # Unmodelled torque
+    tau_ext = np.zeros((N, 3)) if ext_torques[1] is None else np.array(ext_torques[1])
 
     # Store initial conditions at t=0
     sigma_bn_series[0] = sigma_bn
     w_bn_series[0] = w_bn
 
+    # Buffer variable to store K∫σ_B/R dt successive values (could be cleaner)
+    s_br_sum = np.zeros(3)
+
     # Loop runs up to N-2 to allow forward-looking finite difference at i+1
     for i in range(N - 1):
-        dt = float(time[i+1] - time[i])
+        dt = float(dts[i])
 
         target_idx = i + 1
         s_rn_target = reference_mrps[target_idx]
@@ -139,7 +203,21 @@ def propagate_inertial_tracking_control(
         # --------------- Compute the control to apply at this step  --------------- #
 
         # Control is generated using attitude error and angular rate
-        u = generate_control(K, P, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau[i])
+        if gains[2] is None:
+            u = generate_pd_control(gains, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau_hat[i])
+        else:
+            u, s_br_sum = generate_pid_control(
+                gains,
+                I,
+                w_rn,
+                w_rn_dot,
+                w_bn,
+                (sigma_br[i], sigma_br_ctrl),
+                tau_hat[i],
+                (w_br[i], w_br[0]),
+                s_br_sum,
+                dt,
+            )
 
         # --------------- Propagate Velocity --------------- #
 
@@ -150,15 +228,7 @@ def propagate_inertial_tracking_control(
             [-w_bn[1], w_bn[0], 0]
         ])
 
-        # Unmodelled torque
-        # d_l = np.array([0.5,-0.3,0.2]) # [Nm]
-
-        w_bn_dot = I_inv @ (
-            u
-            - (w_bn_tilde @ I @ w_bn)
-            + tau[i]
-            # + d_l
-        )
+        w_bn_dot = I_inv @ (u - (w_bn_tilde @ I @ w_bn) + tau_hat[i] + tau_ext[i])
 
         # Retreive the new w_bn
         w_bn_next = w_bn + w_bn_dot * dt
@@ -178,7 +248,7 @@ def propagate_inertial_tracking_control(
 
     mrp_norm = [np.dot(i, i) for i in sigma_bn_series]
     error_norm = [np.linalg.norm(i) for i in sigma_br]
-    print("Norm sigma_br at ", time[3500], "s: ", error_norm[3500])
+    print("Norm sigma_br at ", time[4500], "s: ", error_norm[4500])
     print("Norm sigma_bn at ", time[3000], "s: ", np.sqrt(mrp_norm[3000]))
 
     if show_plot:
