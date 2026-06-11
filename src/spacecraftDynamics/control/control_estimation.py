@@ -256,6 +256,7 @@ def propagate_inertial_tracking_control(
         w_rn_series = np.array(w_rn_series)
         reference_mrps = np.array(reference_mrps)
         sigma_bn_series = np.array(sigma_bn_series)
+        sigma_br_series = np.array(sigma_br)
 
         plt.figure(0)
         plt.plot(time, sigma_bn_series[:, 0], 'g')
@@ -268,6 +269,7 @@ def propagate_inertial_tracking_control(
         plt.title('Attitude (sigma) series')
         plt.legend(["sigma_1", "sigma_1_target", "sigma_2", "sigma_2_target", "sigma_3", "sigma_3_target", "norm^2"])
         plt.grid()
+
         plt.figure(1)
         plt.plot(time, w_bn_series[:, 0], "b")
         plt.plot(time, w_rn_series[:, 0], "b--")
@@ -278,6 +280,15 @@ def propagate_inertial_tracking_control(
         plt.title("Rate (w) series")
         plt.legend(["w_1", "w_1_target", "w_2", "w_2_target", "w_3", "w_3_target"])
         plt.grid()
+
+        plt.figure(2)
+        plt.plot(time, sigma_br_series[:, 0], 'g')
+        plt.plot(time, sigma_br_series[:, 1], 'b')
+        plt.plot(time, sigma_br_series[:, 2], 'r')
+        plt.title('Attitude errors (sigma_br) series')
+        plt.legend(["sigma_1", "sigma_2", "sigma_3"])
+        plt.grid()
+
         plt.show()
 
     return float(np.linalg.norm(sigma_br[-2])), float(np.linalg.norm(w_br[-2]))

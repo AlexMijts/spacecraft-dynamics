@@ -1,6 +1,5 @@
 import numpy as np
 from spacecraftDynamics.control import control_estimation
-from Basilisk.utilities import RigidBodyKinematics as rbk
 
 # Handle both relative import (when run as module) and absolute import (when run directly)
 try:
