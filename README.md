@@ -2,6 +2,12 @@
 
 This repo contains various ressources used to solve problems in https://www.coursera.org/learn/spacecraft-dynamics-kinematics.
 
+## Install
+Install all necessary pip packages using the following command
+```bash
+pip install -e .
+```
+
 ## Run concept checks
 
 In order to run concept checks, the following command can be used from the top level

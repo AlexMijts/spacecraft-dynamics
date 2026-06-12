@@ -14,7 +14,9 @@ def simple_trap_integral(up, low, dx):
     return (up + low) * 0.5 * dx
 
 
-def generate_pd_control(gains, I, w_ref, w_dot_ref, w_bn, sigma_br, L) -> np.ndarray:
+def generate_pd_control(
+    gains, I, w_ref, w_dot_ref, w_bn, sigma_br, L, max_control=None
+) -> np.ndarray:
     """Compute proportional derivative n.l control law"""
 
     # Retreive Gains
@@ -39,11 +41,25 @@ def generate_pd_control(gains, I, w_ref, w_dot_ref, w_bn, sigma_br, L) -> np.nda
         - L
     )
 
+    # Cap max value per axis of control command (if above max_control or bellow -max_control)
+    if max_control is not None:
+        u = np.maximum(np.minimum(u, max_control), -max_control)
+
     return u
 
 
 def generate_pid_control(
-    gains, I, w_ref, w_dot_ref, w_bn, sigma_br_pair, L, w_br_pair, sigma_br_sum, dt
+    gains,
+    I,
+    w_ref,
+    w_dot_ref,
+    w_bn,
+    sigma_br_pair,
+    L,
+    w_br_pair,
+    sigma_br_sum,
+    dt,
+    max_control=None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute proportional integral derivative n.l control law"""
 
@@ -84,6 +100,10 @@ def generate_pid_control(
         - L
     )
 
+    # Cap max value per axis of control command (if above max_control or bellow -max_control)
+    if max_control is not None:
+        u = np.maximum(np.minimum(u, max_control), -max_control)
+
     return u, sigma_br_sum
 
 
@@ -93,10 +113,12 @@ def propagate_inertial_tracking_control(
     I: np.ndarray,
     reference_mrp_rates=None,
     gains=(1, np.eye(3), None),
+    max_control=None,
     sigma_bn_i=np.array([0, 0, 0]),
     w_bn_i=np.array([0, 0, 0]),
     ext_torques=(None, None),
     show_plot=True,
+    tracking_error_time = 30,
 ) -> tuple[float, float]:
     """
     Propagate free-tumbling spacecraft dynamics based on input control law, initial attitude and velocity
@@ -106,10 +128,11 @@ def propagate_inertial_tracking_control(
         I: S/C inertia matrix,
         reference_mrp_rate: (optional): Tracked inertial reference attitude MRP rate at each timestamp
         gains (optional): (Proportional Gain, Angular rate error gain matrix, Integral gain) customizable gains
+        max_control (optional): Maximum control value [Nm] before saturation
         sigma_bn_i (optional): Initial attitude MRP
         w_bn_i (optional): Initial angular velocities
         ext_torques (optional): tuple of np.ndarray (estimated_torques, unmodelled_torques), perturbing torques at each timestamp
-
+        tracking_error_time (optional): time in the simulation when the tracking error should be computed and displayed
     Returns:
         tuple: The resulting error attitude and rate norm at the last timestamp (sigma_br, w_br_f)
     """
@@ -204,7 +227,7 @@ def propagate_inertial_tracking_control(
 
         # Control is generated using attitude error and angular rate
         if gains[2] is None:
-            u = generate_pd_control(gains, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau_hat[i])
+            u = generate_pd_control(gains, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau_hat[i], max_control)
         else:
             u, s_br_sum = generate_pid_control(
                 gains,
@@ -212,11 +235,12 @@ def propagate_inertial_tracking_control(
                 w_rn,
                 w_rn_dot,
                 w_bn,
-                (sigma_br[i], sigma_br_ctrl),
+                (sigma_br_ctrl, sigma_br[i]),
                 tau_hat[i],
-                (w_br[i], w_br[0]),
+                (w_br[i], w_br[i]),
                 s_br_sum,
                 dt,
+                max_control
             )
 
         # --------------- Propagate Velocity --------------- #
@@ -248,47 +272,52 @@ def propagate_inertial_tracking_control(
 
     mrp_norm = [np.dot(i, i) for i in sigma_bn_series]
     error_norm = [np.linalg.norm(i) for i in sigma_br]
-    print("Norm sigma_br at ", time[4500], "s: ", error_norm[4500])
-    print("Norm sigma_bn at ", time[3000], "s: ", np.sqrt(mrp_norm[3000]))
+
+    # Display attitude error at given input
+    display_time = min(time[-1], tracking_error_time)
+    # get the index of that display time
+    idx_to_show =  np.where(time == display_time)[0][0]
+    print("Norm sigma_br at ", time[idx_to_show], "s: ", error_norm[idx_to_show])
+    print("Norm sigma_bn at ", time[idx_to_show], "s: ", np.sqrt(mrp_norm[idx_to_show]))
+
+    w_bn_series = np.array(w_bn_series)
+    w_rn_series = np.array(w_rn_series)
+    reference_mrps = np.array(reference_mrps)
+    sigma_bn_series = np.array(sigma_bn_series)
+    sigma_br_series = np.array(sigma_br)
+
+    plt.figure(0)
+    plt.plot(time, sigma_bn_series[:, 0], 'g')
+    plt.plot(time, reference_mrps[:, 0], 'g--')
+    plt.plot(time, sigma_bn_series[:, 1], 'b')
+    plt.plot(time, reference_mrps[:, 1], 'b--')
+    plt.plot(time, sigma_bn_series[:, 2], 'r')
+    plt.plot(time, reference_mrps[:, 2], 'r--')
+    plt.plot(time, mrp_norm, 'k')
+    plt.title('Attitude (sigma) series')
+    plt.legend(["sigma_1", "sigma_1_target", "sigma_2", "sigma_2_target", "sigma_3", "sigma_3_target", "norm^2"])
+    plt.grid()
+
+    plt.figure(1)
+    plt.plot(time, w_bn_series[:, 0], "b")
+    plt.plot(time, w_rn_series[:, 0], "b--")
+    plt.plot(time, w_bn_series[:, 1], "r")
+    plt.plot(time, w_rn_series[:, 1], "r--")
+    plt.plot(time, w_bn_series[:, 2], "g")
+    plt.plot(time, w_rn_series[:, 2], "g--")
+    plt.title("Rate (w) series")
+    plt.legend(["w_1", "w_1_target", "w_2", "w_2_target", "w_3", "w_3_target"])
+    plt.grid()
+
+    plt.figure(2)
+    plt.plot(time, sigma_br_series[:, 0], 'g')
+    plt.plot(time, sigma_br_series[:, 1], 'b')
+    plt.plot(time, sigma_br_series[:, 2], 'r')
+    plt.title('Attitude errors (sigma_br) series')
+    plt.legend(["sigma_1", "sigma_2", "sigma_3"])
+    plt.grid()
 
     if show_plot:
-        w_bn_series = np.array(w_bn_series)
-        w_rn_series = np.array(w_rn_series)
-        reference_mrps = np.array(reference_mrps)
-        sigma_bn_series = np.array(sigma_bn_series)
-        sigma_br_series = np.array(sigma_br)
-
-        plt.figure(0)
-        plt.plot(time, sigma_bn_series[:, 0], 'g')
-        plt.plot(time, reference_mrps[:, 0], 'g--')
-        plt.plot(time, sigma_bn_series[:, 1], 'b')
-        plt.plot(time, reference_mrps[:, 1], 'b--')
-        plt.plot(time, sigma_bn_series[:, 2], 'r')
-        plt.plot(time, reference_mrps[:, 2], 'r--')
-        plt.plot(time, mrp_norm, 'k')
-        plt.title('Attitude (sigma) series')
-        plt.legend(["sigma_1", "sigma_1_target", "sigma_2", "sigma_2_target", "sigma_3", "sigma_3_target", "norm^2"])
-        plt.grid()
-
-        plt.figure(1)
-        plt.plot(time, w_bn_series[:, 0], "b")
-        plt.plot(time, w_rn_series[:, 0], "b--")
-        plt.plot(time, w_bn_series[:, 1], "r")
-        plt.plot(time, w_rn_series[:, 1], "r--")
-        plt.plot(time, w_bn_series[:, 2], "g")
-        plt.plot(time, w_rn_series[:, 2], "g--")
-        plt.title("Rate (w) series")
-        plt.legend(["w_1", "w_1_target", "w_2", "w_2_target", "w_3", "w_3_target"])
-        plt.grid()
-
-        plt.figure(2)
-        plt.plot(time, sigma_br_series[:, 0], 'g')
-        plt.plot(time, sigma_br_series[:, 1], 'b')
-        plt.plot(time, sigma_br_series[:, 2], 'r')
-        plt.title('Attitude errors (sigma_br) series')
-        plt.legend(["sigma_1", "sigma_2", "sigma_3"])
-        plt.grid()
-
         plt.show()
 
-    return float(np.linalg.norm(sigma_br[-2])), float(np.linalg.norm(w_br[-2]))
+    return float(np.linalg.norm(sigma_br[-2])), float(np.linalg.norm(w_br[-2])), plt
