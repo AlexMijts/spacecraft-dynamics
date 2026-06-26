@@ -1,5 +1,5 @@
 import numpy as np
-from spacecraftDynamics.control import control_estimation
+from spacecraftDynamics.control import nl_control_estimation
 
 # Handle both relative import (when run as module) and absolute import (when run directly)
 try:
@@ -30,7 +30,7 @@ def run_inertial_fixed_tracking(time, w_i, s_i, K, P, I, ftime, plotting):
 
     check = ConceptCheck("Concept Check 1: General 3-Axis Control")
     check.run(
-        control_estimation.propagate_inertial_tracking_control,
+        nl_control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
         I=I,
@@ -50,7 +50,7 @@ def run_custom_analytical_tracking(time, w_i, s_i, K, P, I, ftime, plotting):
 
     check = ConceptCheck("Concept Check 1: General 3-Axis Control")
     check.run(
-        control_estimation.propagate_inertial_tracking_control,
+        nl_control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
         reference_mrp_rates=sigma_rn_dot,
@@ -74,7 +74,7 @@ def run_custom_tracking_with_torque(time, w_i, s_i, K, P, I, ftime, plotting):
 
     check = ConceptCheck("Concept Check 2: Asymptotic stability")
     check.run(
-        control_estimation.propagate_inertial_tracking_control,
+        nl_control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
         reference_mrp_rates=sigma_rn_dot,
@@ -100,7 +100,7 @@ def run_custom_tracking_unmodelled_torque_control(time, w_i, s_i, K, P, K_i, I, 
 
     check = ConceptCheck("Concept Check 4: Asymptotic stability")
     check.run(
-        control_estimation.propagate_inertial_tracking_control,
+        nl_control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
         reference_mrp_rates=sigma_rn_dot,

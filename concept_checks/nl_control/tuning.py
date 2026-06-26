@@ -1,5 +1,5 @@
 import numpy as np
-from spacecraftDynamics.control import control_estimation
+from spacecraftDynamics.control import nl_control_estimation
 
 # Handle both relative import (when run as module) and absolute import (when run directly)
 try:
@@ -21,7 +21,7 @@ def run_inertial_fixed_tracking(time, w_i, s_i, K, P, I, ftime, plotting):
 
     check = ConceptCheck("Concept Check 5: Feedback gain selection")
     results = check.run(
-        control_estimation.propagate_inertial_tracking_control,
+        nl_control_estimation.propagate_inertial_tracking_control,
         time=time,
         reference_mrps=sigma_rn,
         I=I,

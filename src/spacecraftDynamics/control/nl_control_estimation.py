@@ -9,42 +9,102 @@ def compute_linear_rate(x_prev, x_now, dt):
     return (x_now - x_prev) / dt
 
 
+def simple_trap_integral(up, low, dx):
+    """Approximate integral using trapezoidal rule"""
+    return (up + low) * 0.5 * dx
+
+
 def generate_pd_control(
     gains, I, w_ref, w_dot_ref, w_bn, sigma_br, L, max_control=None
 ) -> np.ndarray:
     """Compute proportional derivative n.l control law"""
 
+    # Retreive Gains
+    if (np.shape(gains[0]) != ()) or (np.shape(gains[1]) != (3, 3)):
+        raise ValueError(f"Specified gain of different shape than K () and P (3,3)")
+
     K = gains[0]
     P = gains[1]
 
-    # Map reference states into the body frame
+    # Map w_rn and w_rn_dot in body frame using sigma_br for DCM
     dcm_BR = mrp_to_dcm(sigma_br)
     w_rn_B = dcm_BR @ w_ref
+    w_br = w_bn - w_rn_B
     w_rn_dot_B = dcm_BR @ w_dot_ref
 
-    # Compute relative rate error
-    w_br = w_bn - w_rn_B
-
-    # Isolate the scalar bracket and scale it by the Identity matrix
-    sigma_norm_sq = np.dot(sigma_br, sigma_br)
-    w_br_norm_sq = np.dot(w_br, w_br)
-    scalar_bracket = (4 * K / (1 + sigma_norm_sq)) - (w_br_norm_sq / 2)
-
-    # Build the full symmetric matrix term
-    matrix_term = np.outer(w_br, w_br) + scalar_bracket * np.eye(3)
-
-    # Compute control command with correct matrix-vector operations
-    # u = w x (Iw) - I*(w_rn_dot + P*w_br + Matrix*sigma) - L
+    # Compute control command
     u = (
-        np.cross(w_bn, I @ w_bn)
-        - I @ (w_rn_dot_B + P @ w_br + matrix_term @ sigma_br)
+        -K * sigma_br
+        - np.dot(P, w_br)
+        + np.dot(I, w_rn_dot_B - np.cross(w_bn, w_rn_B))
+        + np.cross(w_bn, np.dot(I, w_bn))
         - L
     )
 
+    # Cap max value per axis of control command (if above max_control or bellow -max_control)
     if max_control is not None:
-        u = np.clip(u, -max_control, max_control)
+        u = np.maximum(np.minimum(u, max_control), -max_control)
 
     return u
+
+
+def generate_pid_control(
+    gains,
+    I,
+    w_ref,
+    w_dot_ref,
+    w_bn,
+    sigma_br_pair,
+    L,
+    w_br_pair,
+    sigma_br_sum,
+    dt,
+    max_control=None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute proportional integral derivative n.l control law"""
+
+    sigma_br_next, sigma_br_prev = sigma_br_pair[0], sigma_br_pair[1]
+    w_br_now, w_br_i = w_br_pair[0], w_br_pair[1]
+
+    # Retreive Gains
+    if (
+        (np.shape(gains[0]) != ())
+        or (np.shape(gains[1]) != (3, 3))
+        or (gains[2] != None and np.shape(gains[2]) != ())
+    ):
+        raise ValueError(f"Specified gain of different shape than K () P (3,3) and K_i ()")
+
+    K = gains[0]
+    P = gains[1]
+    K_i = gains[2]
+
+    # Map w_rn and w_rn_dot in body frame using sigma_br for DCM
+    dcm_BR = mrp_to_dcm(sigma_br_next)
+    w_rn_B = dcm_BR @ w_ref
+    w_br = w_bn - w_rn_B
+    w_rn_dot_B = dcm_BR @ w_dot_ref
+
+    # Compute z value
+
+    # integral approximation of sigma_br over current dt
+    sigma_br_sum += K * simple_trap_integral(sigma_br_next, sigma_br_prev, dt)
+    z = sigma_br_sum + np.dot(I, w_br_now - w_br_i)
+
+    # Compute control command
+    u = (
+        -K * sigma_br_next
+        - np.dot(P, w_br)
+        + np.dot(I, w_rn_dot_B - np.cross(w_bn, w_rn_B))
+        + np.cross(w_bn, np.dot(I, w_bn))
+        - np.dot(P * K_i, z)
+        - L
+    )
+
+    # Cap max value per axis of control command (if above max_control or bellow -max_control)
+    if max_control is not None:
+        u = np.maximum(np.minimum(u, max_control), -max_control)
+
+    return u, sigma_br_sum
 
 
 def propagate_inertial_tracking_control(
@@ -166,7 +226,22 @@ def propagate_inertial_tracking_control(
         # --------------- Compute the control to apply at this step  --------------- #
 
         # Control is generated using attitude error and angular rate
-        u = generate_pd_control(gains, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau_hat[i], max_control)
+        if gains[2] is None:
+            u = generate_pd_control(gains, I, w_rn, w_rn_dot, w_bn, sigma_br_ctrl, tau_hat[i], max_control)
+        else:
+            u, s_br_sum = generate_pid_control(
+                gains,
+                I,
+                w_rn,
+                w_rn_dot,
+                w_bn,
+                (sigma_br_ctrl, sigma_br[i]),
+                tau_hat[i],
+                (w_br[i], w_br[i]),
+                s_br_sum,
+                dt,
+                max_control
+            )
 
         # --------------- Propagate Velocity --------------- #
 
@@ -238,9 +313,8 @@ def propagate_inertial_tracking_control(
     plt.plot(time, sigma_br_series[:, 0], 'g')
     plt.plot(time, sigma_br_series[:, 1], 'b')
     plt.plot(time, sigma_br_series[:, 2], 'r')
-    plt.plot(time, error_norm, 'k')
     plt.title('Attitude errors (sigma_br) series')
-    plt.legend(["sigma_1", "sigma_2", "sigma_3", "error_norm"])
+    plt.legend(["sigma_1", "sigma_2", "sigma_3"])
     plt.grid()
 
     if show_plot:
